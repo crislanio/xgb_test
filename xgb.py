@@ -1,4 +1,5 @@
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import roc_auc_score
 from pickle import load, dump
 from os.path import isfile
 from gc import collect
@@ -17,13 +18,13 @@ train = load(open('intermediary/train.pkl', 'rb'))
 if not isfile('output/fscores.pkl'):
     fscores = {}
     for column in train.drop(columns=[id_col, target_col]).columns:
-        fscores[column] = 2
+        fscores[column] = 1
     dump(fscores, open('output/fscores.pkl', 'wb'))
 else:
     fscores = load(open('output/fscores.pkl', 'rb'))
 
 n_features = len(fscores)
-features, weights = [feature for feature in fscores],  np.log([fscores[feature] for feature in fscores])
+features, weights = [feature for feature in fscores],  np.array([fscores[feature] for feature in fscores])
 weights = weights/weights.sum()
 
 selected_features = list(np.random.choice(features, size=int(round(FEATURES_PCT*n_features)), replace=False, p=weights))
@@ -70,17 +71,19 @@ del X_train, y_train
 collect()
 
 dvalid = xgb.DMatrix(X_valid, y_valid)
-del X_valid, y_valid
-collect()
 
 watchlist = [(dvalid, 'validation')]
 
-model = xgb.train(xgb_params, dtrain, 100, watchlist, early_stopping_rounds = 15, verbose_eval=5)
+model = xgb.train(xgb_params, dtrain, 10, watchlist, early_stopping_rounds = 15, verbose_eval=1)
 fscores_model = model.get_fscore()
+score = roc_auc_score(y_valid, model.predict(xgb.DMatrix(X_valid)))
+
+del X_valid, y_valid
+collect()
 
 fscores = load(open('output/fscores.pkl', 'rb'))
 for feature in fscores_model:
-    fscores[feature] += fscores_model[feature]
+    fscores[feature] += np.log(fscores_model[feature])
 dump(fscores, open('output/fscores.pkl', 'wb'))
 
 del dtrain, dvalid
@@ -89,4 +92,4 @@ collect()
 test = load(open('intermediary/test.pkl', 'rb'))[ [id_col]+selected_features ]
 test[target_col] = model.predict(xgb.DMatrix(test.drop(columns=[id_col])))
 
-test[[id_col, target_col]].to_csv('output/sub_{}.csv'.format(int(time())), index=False)
+test[[id_col, target_col]].to_csv('output/{}_{}.csv'.format( int(time()), str(score).split('.')[1] ), index=False)
