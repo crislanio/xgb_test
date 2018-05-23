@@ -7,7 +7,7 @@ from time import time
 import xgboost as xgb
 import numpy as np
 
-FEATURES_PCT = 0.8
+FEATURES_PCT = 0.2
 use_gpu = False
 
 id_col = 'SK_ID_CURR'
@@ -18,16 +18,17 @@ train = load(open('intermediary/train.pkl', 'rb'))
 if not isfile('output/fscores.pkl'):
     fscores = {}
     for column in train.drop(columns=[id_col, target_col]).columns:
-        fscores[column] = 1
+        fscores[column] = [1]
     dump(fscores, open('output/fscores.pkl', 'wb'))
 else:
     fscores = load(open('output/fscores.pkl', 'rb'))
 
 n_features = len(fscores)
-features, weights = [feature for feature in fscores],  np.array([fscores[feature] for feature in fscores])
-weights = weights/weights.sum()
+features, probabilities = [feature for feature in fscores],  np.array([fscores[feature][-1] for feature in fscores])
+probabilities = probabilities/probabilities.sum()
 
-selected_features = list(np.random.choice(features, size=int(round(FEATURES_PCT*n_features)), replace=False, p=weights))
+n_selected_features = round(FEATURES_PCT*n_features)
+selected_features = list(np.random.choice(features, size=n_selected_features, replace=False, p=probabilities))
 
 train = train[selected_features+[target_col]].copy()
 collect()
@@ -74,7 +75,7 @@ dvalid = xgb.DMatrix(X_valid, y_valid)
 
 watchlist = [(dvalid, 'validation')]
 
-model = xgb.train(xgb_params, dtrain, 10, watchlist, early_stopping_rounds = 15, verbose_eval=1)
+model = xgb.train(xgb_params, dtrain, 10, watchlist, early_stopping_rounds = 15, verbose_eval=False)
 fscores_model = model.get_fscore()
 score = roc_auc_score(y_valid, model.predict(xgb.DMatrix(X_valid)))
 
@@ -83,7 +84,7 @@ collect()
 
 fscores = load(open('output/fscores.pkl', 'rb'))
 for feature in fscores_model:
-    fscores[feature] += np.log(fscores_model[feature])
+    fscores[feature].append(fscores[feature][-1] + np.log(fscores_model[feature]))
 dump(fscores, open('output/fscores.pkl', 'wb'))
 
 del dtrain, dvalid
@@ -92,4 +93,6 @@ collect()
 test = load(open('intermediary/test.pkl', 'rb'))[ [id_col]+selected_features ]
 test[target_col] = model.predict(xgb.DMatrix(test.drop(columns=[id_col])))
 
-test[[id_col, target_col]].to_csv('output/{}_{}.csv'.format( int(time()), str(score).split('.')[1] ), index=False)
+test[[id_col, target_col]].to_csv('output/pre_sub/{}_{}.csv'.format( int(time()), str(score).split('.')[1] ), index=False)
+del test
+collect()

@@ -66,8 +66,10 @@ for pkl_file in ['bureau', 'previous_application', 'installments_payments', 'cre
 
 # FILLING MISSING VALUES
 
-min_val = min([application[column].min() for column in application.columns])
-application.fillna(10*min_val, inplace=True)
+for column in application.columns:
+    minn = application[column].min()
+    maxx = application[column].max()
+    application[column].fillna(min(-10, minn)-max(10, 10*(maxx-minn)), inplace=True)
 
 # OPTIMIZING
 
