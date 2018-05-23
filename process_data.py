@@ -3,9 +3,9 @@ from gc import collect
 import pandas as pd
 from funcs import *
 
-#aggrs = ['count', 'sum', 'max', 'min', 'std', 'skew', 'kurt']
-#aggrs = ['count', 'sum', 'max', 'min', 'std']
-aggrs = []
+aggrs = ['count', 'sum', 'max', 'min', 'std', 'var', 'skew', 'kurt']
+#aggrs = ['count', 'sum', 'max', 'min', 'std', 'var']
+#aggrs = []
 
 ##### bureau
 
@@ -34,9 +34,16 @@ collect()
 
 ##### credit_card_balance
 
-credit_card_balance = pd.read_csv('input/credit_card_balance.csv').drop(columns=['SK_ID_PREV'])
+credit_card_balance = pd.read_csv('input/credit_card_balance.csv').drop(columns=['SK_ID_PREV', 'AMT_RECIVABLE', 'AMT_TOTAL_RECEIVABLE'])
 credit_card_balance = pd.get_dummies(credit_card_balance, columns=['NAME_CONTRACT_STATUS'])
 credit_card_balance = group_and_aggregate(credit_card_balance, by='SK_ID_CURR', aggrs=aggrs)
+for feature in ['DRAWINGS_ATM_CURRENT', 'DRAWINGS_CURRENT', 'DRAWINGS_OTHER_CURRENT', 'DRAWINGS_POS_CURRENT']:
+    credit_card_balance['PCT_'+feature+'_(MEAN)'] = credit_card_balance['AMT_'+feature+'_(MEAN)']/credit_card_balance['AMT_CREDIT_LIMIT_ACTUAL_(MEAN)']
+    credit_card_balance['PCT_'+feature+'_PER_DRAWING_(MEAN)'] = credit_card_balance['PCT_'+feature+'_(MEAN)']/credit_card_balance['CNT_'+feature+'_(MEAN)']
+credit_card_balance['PCT_BALANCE_(MEAN)'] = credit_card_balance['AMT_BALANCE_(MEAN)']/credit_card_balance['AMT_CREDIT_LIMIT_ACTUAL_(MEAN)']
+credit_card_balance['TAX_(MEAN)'] = credit_card_balance['AMT_BALANCE_(MEAN)']/credit_card_balance['AMT_RECEIVABLE_PRINCIPAL_(MEAN)']
+credit_card_balance['PCT_PAYMENT_CURRENT_(MEAN)'] = credit_card_balance['AMT_PAYMENT_CURRENT_(MEAN)']/credit_card_balance['AMT_BALANCE_(MEAN)']
+credit_card_balance['PCT_PAYMENT_TOTAL_CURRENT(MEAN)'] = credit_card_balance['AMT_PAYMENT_TOTAL_CURRENT_(MEAN)']/credit_card_balance['AMT_BALANCE_(MEAN)']
 rename_columns(credit_card_balance, suffix='_(CRED_CARD)', untouched=['SK_ID_CURR'])
 dump(credit_card_balance, open('intermediary/credit_card_balance.pkl', 'wb'))
 del credit_card_balance

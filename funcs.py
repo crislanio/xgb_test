@@ -40,6 +40,4 @@ def group_and_aggregate(df, by, aggrs):
                 df_by[column+'_({})'.format(aggr.upper())] = df_groupby[column].transform(aggr)
             else:
                 df_by[column+'_({})'.format(aggr.upper())] = df_groupby[column].apply(kurtosis)
-    del df_groupby
-    collect()
     return df_by

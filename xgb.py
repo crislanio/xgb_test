@@ -9,12 +9,15 @@ import pandas as pd
 import numpy as np
 
 FEATURES_PCT = 0.5
+SCORE_FEATURES_PCT = 0.8
 use_gpu = False
 
 id_col = 'SK_ID_CURR'
 target_col = 'TARGET'
 
 train_pkl = load(open('intermediary/train.pkl', 'rb'))
+
+old_tuple = None
 
 while True:
     if not isfile('output/fscores.pkl'):
@@ -29,9 +32,16 @@ while True:
     features, probabilities = [feature for feature in fscores],  np.array([fscores[feature] for feature in fscores])
     probabilities = probabilities/probabilities.sum()
 
-    np.random.seed(int(time()))
-    n_selected_features = round(FEATURES_PCT*n_features)
-    selected_features = list(np.random.choice(features, size=n_selected_features, replace=False, p=probabilities))
+    n_selected_features = int(round(FEATURES_PCT*n_features))
+    n_score_selected_features = int(round(SCORE_FEATURES_PCT*n_selected_features))
+    n_uniform_selected_features = n_selected_features - n_score_selected_features
+
+    score_selected_features = list(np.random.choice(features, size=n_score_selected_features, replace=False, p=probabilities))
+    not_score_selected_features = [feature for feature in features if feature not in score_selected_features]
+
+    uniform_selected_features = list(np.random.choice(not_score_selected_features, size=n_uniform_selected_features, replace=False))
+
+    selected_features = score_selected_features + uniform_selected_features
 
     train = train_pkl[selected_features+[target_col]]
 
@@ -44,13 +54,13 @@ while True:
 
     # https://github.com/dmlc/xgboost/blob/master/doc/parameter.md
     xgb_params = {
-        'eta': 0.25,
+        'eta': 0.2,
         'colsample_bytree': 0.7,
         'colsample_bylevel':0.7,
         'min_child_weight':0,
         'alpha': 2,
         'max_depth': int(round(np.log(n_selected_features))),
-        'scale_pos_weight': unbalance_factor,
+        'scale_pos_weight': unbalance_factor/2,
         'eval_metric': 'auc',
         'random_state': int(time()),
         'silent': True,
@@ -63,7 +73,7 @@ while True:
     if use_gpu:
         xgb_params.update({'tree_method':'gpu_hist', 'predictor':'gpu_predictor', 'objective':'gpu:binary:logistic'})
 
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.1368, random_state=int(time()))
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.1368, random_state=int(time()), stratify=y)
     del X, y
     collect()
 
@@ -84,7 +94,7 @@ while True:
 
     fscores = load(open('output/fscores.pkl', 'rb'))
     for feature in fscores_model:
-        fscores[feature] += np.log(1+fscores_model[feature])
+        fscores[feature] += np.log(2+fscores_model[feature])
     dump(fscores, open('output/fscores.pkl', 'wb'))
 
     for feature in fscores:
