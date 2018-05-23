@@ -4,7 +4,8 @@ import pandas as pd
 from funcs import *
 
 #aggrs = ['count', 'sum', 'max', 'min', 'std', 'skew', 'kurt']
-aggrs = ['count', 'sum', 'max', 'min', 'std']
+#aggrs = ['count', 'sum', 'max', 'min', 'std']
+aggrs = []
 
 ##### bureau
 
@@ -26,17 +27,17 @@ bureau['PCT_CREDIT_SUM_OVERDUE_(MEAN)'] = bureau['AMT_CREDIT_SUM_OVERDUE_(MEAN)'
 bureau['PCT_CREDIT_MAX_OVERDUE_(MEAN)'] = bureau['AMT_CREDIT_MAX_OVERDUE_(MEAN)']/bureau['AMT_CREDIT_SUM_(MEAN)']
 bureau['PCT_ANNUITY_(MEAN)'] = bureau['AMT_ANNUITY_(MEAN)']/bureau['AMT_CREDIT_SUM_(MEAN)']
 rename_columns(bureau, suffix='_(BUREAU)', untouched=['SK_ID_CURR'])
-bureau = optimize(bureau.merge(bureau_balance, on='SK_ID_CURR', how='left'))
+bureau = bureau.merge(bureau_balance, on='SK_ID_CURR', how='left')
 dump(bureau, open('intermediary/bureau.pkl', 'wb'))
 del bureau, bureau_balance
 collect()
 
 ##### credit_card_balance
 
+credit_card_balance = pd.read_csv('input/credit_card_balance.csv').drop(columns=['SK_ID_PREV'])
 credit_card_balance = pd.get_dummies(credit_card_balance, columns=['NAME_CONTRACT_STATUS'])
 credit_card_balance = group_and_aggregate(credit_card_balance, by='SK_ID_CURR', aggrs=aggrs)
 rename_columns(credit_card_balance, suffix='_(CRED_CARD)', untouched=['SK_ID_CURR'])
-credit_card_balance = optimize(credit_card_balance)
 dump(credit_card_balance, open('intermediary/credit_card_balance.pkl', 'wb'))
 del credit_card_balance
 collect()
@@ -48,7 +49,6 @@ installments_payments['PAYMENT_DELAY'] = installments_payments['DAYS_ENTRY_PAYME
 installments_payments = group_and_aggregate(installments_payments, by='SK_ID_CURR', aggrs=aggrs)
 installments_payments['PCT_PAYMENT_(MEAN)'] = installments_payments['AMT_PAYMENT_(MEAN)']/installments_payments['AMT_INSTALMENT_(MEAN)']
 rename_columns(installments_payments, suffix='_(INST_PAYM)', untouched=['SK_ID_CURR'])
-installments_payments = optimize(installments_payments)
 dump(installments_payments, open('intermediary/installments_payments.pkl', 'wb'))
 del installments_payments
 collect()
@@ -60,7 +60,6 @@ pos_cash_balance = pd.get_dummies(pos_cash_balance, columns=['NAME_CONTRACT_STAT
 pos_cash_balance = group_and_aggregate(pos_cash_balance, by='SK_ID_CURR', aggrs=aggrs)
 pos_cash_balance['PCT_INSTALMENT_FUTURE_(MEAN)'] = pos_cash_balance['CNT_INSTALMENT_FUTURE_(MEAN)']/pos_cash_balance['CNT_INSTALMENT_(MEAN)']
 rename_columns(pos_cash_balance, suffix='_(POS_CASH)', untouched=['SK_ID_CURR'])
-pos_cash_balance = optimize(pos_cash_balance)
 dump(pos_cash_balance, open('intermediary/pos_cash_balance.pkl', 'wb'))
 del pos_cash_balance
 collect()
@@ -98,5 +97,4 @@ previous_application['PCT_DOWN_PAYMENT_(MEAN)'] = previous_application['AMT_DOWN
 previous_application['PCT_GOODS_PRICE_APPLICATION_(MEAN)'] = previous_application['AMT_GOODS_PRICE_(MEAN)']/previous_application['AMT_APPLICATION_(MEAN)']
 previous_application['PCT_GOODS_PRICE_CREDIT_(MEAN)'] = previous_application['AMT_GOODS_PRICE_(MEAN)']/previous_application['AMT_CREDIT_(MEAN)']
 rename_columns(previous_application, suffix='_(PREV_APP)', untouched=['SK_ID_CURR'])
-previous_application = optimize(previous_application)
 dump(previous_application, open('intermediary/previous_application.pkl', 'wb'))
