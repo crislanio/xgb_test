@@ -36,7 +36,7 @@ def group_and_aggregate(df, by, aggrs):
     for column in df.drop(columns=[by]).columns:
         for aggr in aggrs:
             if aggr!='kurt':
-                df_by[column+'_({})'.format(aggr.upper())] = df_groupby[column].transform(aggr)
+                df_by[column+'({})'.format(aggr.upper())] = df_groupby[column].transform(aggr)
             else:
-                df_by[column+'_({})'.format(aggr.upper())] = df_groupby[column].apply(kurtosis)
+                df_by[column+'({})'.format(aggr.upper())] = df_groupby[column].apply(kurtosis)
     return df_by

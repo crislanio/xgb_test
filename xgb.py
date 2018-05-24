@@ -8,16 +8,13 @@ import xgboost as xgb
 import pandas as pd
 import numpy as np
 
-FEATURES_PCT = 0.5
-SCORE_FEATURES_PCT = 0.8
+FEATURES_PCT = 0.7
 use_gpu = False
 
 id_col = 'SK_ID_CURR'
 target_col = 'TARGET'
 
 train_pkl = load(open('intermediary/train.pkl', 'rb'))
-
-old_tuple = None
 
 while True:
     if not isfile('output/fscores.pkl'):
@@ -33,15 +30,8 @@ while True:
     probabilities = probabilities/probabilities.sum()
 
     n_selected_features = int(round(FEATURES_PCT*n_features))
-    n_score_selected_features = int(round(SCORE_FEATURES_PCT*n_selected_features))
-    n_uniform_selected_features = n_selected_features - n_score_selected_features
 
-    score_selected_features = list(np.random.choice(features, size=n_score_selected_features, replace=False, p=probabilities))
-    not_score_selected_features = [feature for feature in features if feature not in score_selected_features]
-
-    uniform_selected_features = list(np.random.choice(not_score_selected_features, size=n_uniform_selected_features, replace=False))
-
-    selected_features = score_selected_features + uniform_selected_features
+    selected_features = list(np.random.choice(features, size=n_selected_features, replace=False, p=probabilities))
 
     train = train_pkl[selected_features+[target_col]]
 
@@ -73,7 +63,7 @@ while True:
     if use_gpu:
         xgb_params.update({'tree_method':'gpu_hist', 'predictor':'gpu_predictor', 'objective':'gpu:binary:logistic'})
 
-    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.1368, random_state=int(time()), stratify=y)
+    X_train, X_valid, y_train, y_valid = train_test_split(X, y, test_size=0.1358, random_state=int(time()))
     del X, y
     collect()
 
@@ -85,25 +75,32 @@ while True:
 
     watchlist = [(dvalid, 'validation')]
 
-    model = xgb.train(xgb_params, dtrain, 500, watchlist, early_stopping_rounds = 15, verbose_eval=5)
-    fscores_model = model.get_fscore()
-    score = roc_auc_score(y_valid, model.predict(xgb.DMatrix(X_valid)))
+    model = xgb.train(xgb_params, dtrain, 500, watchlist, early_stopping_rounds = 20, verbose_eval=5)
 
-    ##
+    score = roc_auc_score(y_valid, model.predict(xgb.DMatrix(X_valid)))
+    del X_valid, y_valid
+    collect()
+
     fscores_weight = model.get_score(importance_type='weight')
-    weight_scores = [fscores_weight[feature] for feature in fscores_weight]
-    print(min(weight_scores), max(weight_scores))
+    weight_scores = np.array([fscores_weight[feature] for feature in fscores_weight])
 
     fscores_gain = model.get_score(importance_type='gain')
-    gain_scores = [fscores_gain[feature] for feature in fscores_gain]
-    print(min(gain_scores), max(gain_scores))
+    gain_scores = np.array([fscores_gain[feature] for feature in fscores_gain])
+    for feature in fscores_gain:
+        fscores_gain[feature] = (fscores_gain[feature]-gain_scores.min())/(gain_scores.max()-gain_scores.min())
+        fscores_gain[feature] = fscores_gain[feature]*(weight_scores.max()-weight_scores.min()) + weight_scores.min()
 
     fscores_cover = model.get_score(importance_type='cover')
-    cover_scores = [fscores_cover[feature] for feature in fscores_cover]
-    print(min(cover_scores), max(cover_scores))
-    ##
+    cover_scores = np.array([fscores_cover[feature] for feature in fscores_cover])
+    for feature in fscores_cover:
+        fscores_cover[feature] = (fscores_cover[feature]-cover_scores.min())/(cover_scores.max()-cover_scores.min())
+        fscores_cover[feature] = fscores_cover[feature]*(weight_scores.max()-weight_scores.min()) + weight_scores.min()
 
-    del X_valid, y_valid
+    fscores_model ={}
+    for feature in fscores_weight:
+        fscores_model[feature] = (fscores_weight[feature] + fscores_gain[feature] + fscores_cover[feature])/3
+
+    del fscores_weight, fscores_gain, fscores_cover
     collect()
 
     fscores = load(open('output/fscores.pkl', 'rb'))
