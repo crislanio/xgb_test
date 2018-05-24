@@ -33,7 +33,6 @@ def rename_columns(df, suffix, untouched=[]):
 def group_and_aggregate(df, by, aggrs):
     df_groupby = df.groupby(by)
     df_by = df_groupby.mean().reset_index()
-    rename_columns(df_by, suffix='_(MEAN)', untouched=[by])
     for column in df.drop(columns=[by]).columns:
         for aggr in aggrs:
             if aggr!='kurt':

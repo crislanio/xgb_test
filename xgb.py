@@ -89,6 +89,20 @@ while True:
     fscores_model = model.get_fscore()
     score = roc_auc_score(y_valid, model.predict(xgb.DMatrix(X_valid)))
 
+    ##
+    fscores_weight = model.get_score(importance_type='weight')
+    weight_scores = [fscores_weight[feature] for feature in fscores_weight]
+    print(min(weight_scores), max(weight_scores))
+
+    fscores_gain = model.get_score(importance_type='gain')
+    gain_scores = [fscores_gain[feature] for feature in fscores_gain]
+    print(min(gain_scores), max(gain_scores))
+
+    fscores_cover = model.get_score(importance_type='cover')
+    cover_scores = [fscores_cover[feature] for feature in fscores_cover]
+    print(min(cover_scores), max(cover_scores))
+    ##
+
     del X_valid, y_valid
     collect()
 

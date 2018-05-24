@@ -64,6 +64,8 @@ rename_columns(application, suffix='_(APP)', untouched=['SK_ID_CURR', 'TARGET'])
 for pkl_file in ['bureau', 'previous_application', 'installments_payments', 'credit_card_balance', 'pos_cash_balance']:
     application = pd.merge(application, load(open('intermediary/{}.pkl'.format(pkl_file), 'rb')), on='SK_ID_CURR', how='left')
 
+# FEATURE ENGINEERING
+
 # FILLING MISSING VALUES
 
 for column in application.columns:
